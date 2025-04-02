@@ -1,0 +1,35 @@
+{
+  "name": "@chrom-ar/courier",
+  "version": "0.1.0",
+  "description": "Chrom.ar messaging handler",
+  "main": "dist/index.js",
+  "author": "Chroma Labs",
+  "license": "MIT",
+  "homepage": "https://github.com/chrom-ar/courier#readme",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chrom-ar/courier.git"
+  },
+  "bugs": {
+    "url": "https://github.com/chrom-ar/courier/issues"
+  },
+  "dependencies": {
+    "@libp2p/tcp": "^10.1.8",
+    "@waku/sdk": "^0.0.30",
+    "dotenv": "^16.4.7",
+    "protobufjs": "^7.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}
