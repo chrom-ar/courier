@@ -21,12 +21,18 @@ import { logger } from "../../lib/logger.js";
 
 interface WakuMessageEvent {
   timestamp: number;
-  body: any;
+  body: unknown;
   roomId: string;
 }
 
 interface WakuEventCallback {
   (event: WakuMessageEvent): Promise<void>;
+}
+
+interface DecodedChatMessage {
+  timestamp: number | protobuf.Long;
+  body: Uint8Array;
+  roomId: Uint8Array;
 }
 
 const ChatMessage = new protobuf.Type("ChatMessage")
@@ -41,7 +47,7 @@ export class WakuClient extends EventEmitter implements Provider {
   node: LightNode | null = null; // This will be the LightNode
 
   private subscriptionMap: Map<string, {
-    subscription: any;
+    subscription: ISubscription;
     expiration: number;
   }> = new Map();
 
@@ -93,7 +99,7 @@ export class WakuClient extends EventEmitter implements Provider {
    * Subscribe to the user-specified WAKU_CONTENT_TOPIC
    * If it contains the placeholder, we replace with the WAKU_TOPIC value, possibly with an appended random hex if so desired.
    */
-  async subscribe(topic: string, fn: any, expirationSeconds: number = 20): Promise<void> {
+  async subscribe(topic: string, fn: unknown, expirationSeconds: number = 20): Promise<void> {
     if (!topic) {
       if (!this.config.contentTopic || !this.config.topics) {
         throw new Error("[WakuBase] subscription not configured (missing env). No messages will be received.");
@@ -105,7 +111,7 @@ export class WakuClient extends EventEmitter implements Provider {
     for (const subscribedTopic of subscribedTopics) {
       const subscriptionResult = await this.node?.filter.subscribe(
         [createDecoder(subscribedTopic)],
-        async (wakuMsg: IDecodedMessage) => this.handleSubscriptionMessage(wakuMsg, fn)
+        async (wakuMsg: IDecodedMessage) => this.handleSubscriptionMessage(wakuMsg, fn as WakuEventCallback),
       );
 
       if (!subscriptionResult || subscriptionResult.error) {
@@ -135,11 +141,11 @@ export class WakuClient extends EventEmitter implements Provider {
       try {
         await this.node.lightPush.send(
           createEncoder({ contentTopic: topic }),
-          { payload: ChatMessage.encode(protoMessage).finish() }
+          { payload: ChatMessage.encode(protoMessage).finish() },
         );
         logger.success("[WakuBase] Message sent!");
-      } catch (e) {
-        logger.error("[WakuBase] Error sending message:", e);
+      } catch (error) {
+        logger.error("[WakuBase] Error sending message:", error);
       }
     }
   }
@@ -153,7 +159,7 @@ export class WakuClient extends EventEmitter implements Provider {
 
         if (subscription) {
           logger.info(`[WakuBase] Unsubscribing from topic: ${subscribedTopic}`);
-          await subscription.subscription.unsubscribe();
+          await subscription.subscription.unsubscribe([subscribedTopic]);
           this.subscriptionMap.delete(subscribedTopic);
         } else {
           logger.warn(`[WakuBase] No subscription found for topic: ${subscribedTopic}`);
@@ -170,14 +176,14 @@ export class WakuClient extends EventEmitter implements Provider {
   }
 
   defaultIntentsTopics(): string[] {
-    const topics = this.config.topics.split(',');
+    const topics = this.config.topics.split(",");
 
     return topics.map(topic => this.config.contentTopic.replace("PLACEHOLDER", topic.trim()));
   }
 
   async buildFullTopics(topic?: string): Promise<string[]> {
     if (!topic) {
-      return this.defaultIntentsTopics()
+      return this.defaultIntentsTopics();
     } else if (topic.includes("random")) {
       // Optionally append random if you want ephemeral uniqueness
       return [this.config.contentTopic.replace("PLACEHOLDER", await randomHexString(16))];
@@ -197,7 +203,7 @@ export class WakuClient extends EventEmitter implements Provider {
     if (peers.length > 0) {
       // NOTE: If other transports are needed we **have** to add them here
       this.node = await createLightNode({
-        libp2p: { transports: [tcp()], hideWebSocketInfo: true }
+        libp2p: { transports: [tcp()], hideWebSocketInfo: true },
       });
 
       for (const peer of peers) {
@@ -206,11 +212,10 @@ export class WakuClient extends EventEmitter implements Provider {
           try {
             await this.node.dial(peer);
             logger.info(`[WakuBase] ${peer} connected`);
-            break
-          } catch (e) {
-            logger.error(`[WakuBase] Error ${i} dialing peer ${peer}: ${e}`);
-            logger.error(e as any);
-            await sleep(500)
+            break;
+          } catch (error) {
+            logger.error(`[WakuBase] Error ${i} dialing peer ${peer}:`, error);
+            await sleep(500);
           }
         }
       }
@@ -230,8 +235,8 @@ export class WakuClient extends EventEmitter implements Provider {
         if (this.node?.isConnected()) {
           break;
         }
-      } catch (e) {
-        logger.info(`[WakuBase] Attempt ${i + 1}/${this.config.pingCount} => still waiting for peers`);
+      } catch (error) {
+        logger.info(`[WakuBase] Attempt ${i + 1}/${this.config.pingCount} => still waiting for peers`, error);
 
         if (i === this.config.pingCount - 1) {
           throw new Error("[WakuBase] Could not find remote peer after max attempts");
@@ -243,7 +248,7 @@ export class WakuClient extends EventEmitter implements Provider {
   }
 
   private async registerHealthListener() {
-    this.node?.health.addEventListener(HealthStatusChangeEvents.StatusChange, async (event: any) => {
+    this.node?.health.addEventListener(HealthStatusChangeEvents.StatusChange, async (event: { detail: HealthStatus }) => {
       logger.info(`Health status changed to: ${event.detail}`);
 
       if (event.detail === HealthStatus.Unhealthy) {
@@ -282,14 +287,14 @@ export class WakuClient extends EventEmitter implements Provider {
     logger.info("WakuNode Status", this.node?.health.toString());
   }
 
-  private async checkAndSaveSubscription(subscription: ISubscription, topic: string, fn: any, expirationSeconds: number) {
+  private async checkAndSaveSubscription(subscription: ISubscription, topic: string, fn: unknown, expirationSeconds: number) {
     // Attempt a 'ping' to ensure it is up
     for (let i = 0; i < this.config.pingCount; i++) {
       try {
         await subscription.ping();
         break;
-      } catch (e) {
-        if (e instanceof Error && e.message.includes("peer has no subscriptions")) {
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("peer has no subscriptions")) {
           logger.warn("[WakuBase] Peer has no subs, retrying subscription...");
           return this.subscribe(topic, fn);
         }
@@ -304,7 +309,7 @@ export class WakuClient extends EventEmitter implements Provider {
     // Save subscription to check expiration
     this.subscriptionMap.set(topic, {
       subscription: subscription,
-      expiration: Date.now() + expirationSeconds * 1000
+      expiration: Date.now() + expirationSeconds * 1000,
     });
   }
 
@@ -314,20 +319,18 @@ export class WakuClient extends EventEmitter implements Provider {
       return;
     }
 
-    let msgDecoded: any;
-
     try {
-      msgDecoded = ChatMessage.decode(message.payload);
+      const msgDecoded = ChatMessage.decode(message.payload) as unknown as DecodedChatMessage;
 
       const event: WakuMessageEvent = {
         body: JSON.parse(bytesToUtf8(msgDecoded.body)),
         timestamp: Number(msgDecoded.timestamp),
-        roomId: bytesToUtf8(msgDecoded.roomId)
+        roomId: bytesToUtf8(msgDecoded.roomId),
       };
 
       await fn(event);
     } catch (err) {
-      logger.error("[WakuBase] Error decoding message payload:", err, msgDecoded);
+      logger.error("[WakuBase] Error decoding message payload:", err);
     }
   }
 }

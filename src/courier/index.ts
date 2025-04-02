@@ -1,11 +1,11 @@
-import { Provider } from '../providers/index.js';
-import { WakuClient } from '../providers/waku/index.js';
-import { initializeLogger } from '../lib/logger.js';
+import { Provider } from "../providers/index.js";
+import { WakuClient } from "../providers/waku/index.js";
+import { initializeLogger } from "../lib/logger.js";
 
 /**
  * Callback type for message subscription
  */
-export type MessageCallback = (message: any) => void;
+export type MessageCallback = (message: unknown) => void;
 
 /**
  * Courier class for simplifying publisher/subscriber patterns

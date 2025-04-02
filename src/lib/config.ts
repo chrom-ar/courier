@@ -1,8 +1,8 @@
-import * as dotenv from 'dotenv';
-import * as path from 'path';
+import * as dotenv from "dotenv";
+import * as path from "path";
 
 // Load environment variables from .env file
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 /**
  * Interface defining the configuration for Waku networking
@@ -26,9 +26,9 @@ export interface WakuConfig {
  */
 export function getWakuConfig(): WakuConfig {
   return {
-    staticPeers: process.env.WAKU_STATIC_PEERS || '',
-    pingCount: parseInt(process.env.WAKU_PING_COUNT || '') || 10,
-    topics: process.env.WAKU_TOPICS || 'default',
-    contentTopic: process.env.WAKU_CONTENT_TOPIC || '/waku/2/PLACEHOLDER/proto',
+    staticPeers: process.env.WAKU_STATIC_PEERS || "",
+    pingCount: parseInt(process.env.WAKU_PING_COUNT || "") || 10,
+    topics: process.env.WAKU_TOPICS || "default",
+    contentTopic: process.env.WAKU_CONTENT_TOPIC || "/waku/2/PLACEHOLDER/proto",
   };
 }
