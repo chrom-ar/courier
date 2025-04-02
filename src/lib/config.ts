@@ -1,12 +1,13 @@
 import * as dotenv from "dotenv";
 import * as path from "path";
+import * as fs from "fs";
 
-// Load environment variables from .env file
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+const envPath = path.resolve(process.cwd(), ".env");
 
-/**
- * Interface defining the configuration for Waku networking
- */
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+}
+
 export interface WakuConfig {
   /** Static peers to connect to, comma-separated */
   staticPeers: string;
@@ -14,16 +15,13 @@ export interface WakuConfig {
   /** Number of times to attempt connecting to peers */
   pingCount: number;
 
-  /** The base topic name used for communication */
+  /** The topic names used for communication, comma-separated */
   topics: string;
 
   /** The content topic format including a placeholder */
   contentTopic: string;
 }
 
-/**
- * Function to get a configured WakuConfig from environment variables
- */
 export function getWakuConfig(): WakuConfig {
   return {
     staticPeers: process.env.WAKU_STATIC_PEERS || "",
